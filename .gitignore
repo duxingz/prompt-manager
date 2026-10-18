@@ -1,0 +1,22 @@
+# 构建产物（可由 build.bat 再生成，不入库）
+dist/
+*.exe
+*.pdb
+*.obj
+
+# 用户数据（绝不上传）
+prompts_data.json
+notes.json
+notes.json.*
+saves/
+backups/
+*.corrupt-*
+
+# 旧版归档（用户私库 22MB+，绝不上传）
+旧版数据/
+
+# 临时 / 截图 / 分享包
+_ui-shots-*/
+_tmp*/
+*.zip
+*.log

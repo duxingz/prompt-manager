@@ -17,11 +17,15 @@ namespace PromptDrawer
             = new System.Collections.Generic.Dictionary<string, string[]>
         {
             { "Canvas",        new[] { "#FAF6EF", "#211E1A" } },
-            { "Surface",       new[] { "#FFFFFF", "#2B2723" } },
+            { "Surface",       new[] { "#FFFFFF", "#322D28" } },   // 2026-10-24 随套件 v2.2/v3.0.0：暗色提亮一档（对画布 1.09→1.22，卡片不再糊成一条）
             { "Sunken",        new[] { "#F0E9DC", "#1A1714" } },
             { "SurfaceAlt",    new[] { "#F5EFE4", "#262220" } },
-            { "Border",        new[] { "#EBE4D8", "#3D3831" } },
+            { "Border",        new[] { "#EBE4D8", "#4D463E" } },   // 2026-10-24 同步：暗色提亮（对卡底 1.47:1）
             { "BorderStrong",  new[] { "#D9CFC0", "#574F44" } },
+            // 2026-10-24 新增（套件 v2.2/v3.0.0 的 border_field）：输入框/可交互控件边界，
+            // WCAG 1.4.11 非文本对比 3:1 —— 浅 #96897A 对白卡 3.41:1 / 深 #837B6C 对卡底 3.25:1。
+            // 原用 BorderStrong 只有 1.2~1.8:1（白底上一道虚影）。
+            { "BorderField",   new[] { "#96897A", "#837B6C" } },
             { "Text",          new[] { "#453F36", "#E5DFD5" } },
             { "TextMuted",     new[] { "#6C655B", "#A79F92" } },
             { "Accent",        new[] { "#2478A8", "#4E9CCB" } },
@@ -64,6 +68,7 @@ namespace PromptDrawer
         public static Color SurfaceAlt   { get { return Pal("SurfaceAlt"); } }
         public static Color Border       { get { return Pal("Border"); } }
         public static Color BorderStrong { get { return Pal("BorderStrong"); } }
+        public static Color BorderField  { get { return Pal("BorderField"); } }   // 输入框/可交互边界（3:1）
         public static Color Text         { get { return Pal("Text"); } }
         public static Color TextMuted    { get { return Pal("TextMuted"); } }
         public static Color Accent       { get { return Pal("Accent"); } }

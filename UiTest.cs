@@ -143,11 +143,81 @@ namespace PromptDrawer
             return new Point(x, y);
         }
 
+        // --uishots：渲染 QA 出图（2026-10-24，凌修㉖）。与 --uitest 同一套规矩：
+        // 窗口只在屏幕外显示、绝不移动鼠标/键盘、绝不整屏截图、测试数据只进临时目录。
+        // 产出：prompts/notes/settings × light/dark 共 6 张 PNG，
+        // 供四色配额检查（check_usage.py --render）与独立视觉验收。
+        public static int RunShots(string dir)
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            int cs = CapsuleForm.CapsuleSize;          // 触发 Program 静态构造（DPI 测定）
+            Rectangle wa = Screen.PrimaryScreen.WorkingArea;
+
+            string tmp = Path.Combine(Path.GetTempPath(), "pmv3_uishots_data");
+            try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch (Exception) { }
+            Directory.CreateDirectory(tmp);
+            Store.DataDir = tmp;
+            Store st = new Store();
+            st.Load();
+            typeof(Program).GetField("_store", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, st);
+            // 造 3 条测试数据（只进临时目录）：覆盖收藏星（橙位）、标签 chip、预览两行
+            var tags = new List<string>(); tags.Add("写作"); tags.Add("日常");
+            st.AddPrompt("每日站会汇报模板", "本周完成了清单三件事……", tags, "", true, "");
+            st.AddPrompt("Midjourney 风格词", "cinematic lighting, soft focus ……", new List<string>(), "", false, "");
+            st.AddPrompt("翻译润色指令", "把下面的段落润色成自然的书面语……", new List<string>(), "", false, "");
+            st.Save();
+
+            try { Directory.CreateDirectory(dir); } catch (Exception) { }
+            int n = 0;
+            string[] themes = { "light", "dark" };
+            foreach (string th in themes)
+            {
+                // 主题必须写进测试 store：DrawerForm 构造时从 GetSetting("theme") 读并覆盖 Theme.Dark
+                st.SetSetting("theme", th);
+                st.Save();
+                Theme.Dark = (th == "dark");
+                using (QuietDrawer dr = new QuietDrawer(st))
+                {
+                    dr.StartPosition = FormStartPosition.Manual;
+                    dr.Location = new Point(wa.Left - 3000, wa.Top - 3000);   // 屏幕外
+                    dr.Show();
+                    Pump(500);
+                    // 复刻 Program.ShowDrawer() 的真实路径（正式应用靠热键弹出时才刷数据）：
+                    // 少了 RefreshChips 的话 chips 行整行不建，四色里的粉位就没了（2026-10-24 实测踩过）
+                    dr.RefreshChips();
+                    dr.RefreshList();
+                    Pump(200);
+                    Control header = (Control)GetPriv(dr, "_header");
+                    for (int ti = 0; ti < 3; ti++)
+                    {
+                        foreach (Control c in header.Controls)
+                        {
+                            TabButton x = c as TabButton;
+                            if (x != null && x.Index == ti) { x.PerformClick(); break; }
+                        }
+                        Pump(200);
+                        string name = (ti == 0 ? "prompts" : ti == 1 ? "notes" : "settings") + "_" + th;
+                        using (Bitmap bmp = new Bitmap(dr.Width, dr.Height))
+                        {
+                            dr.DrawToBitmap(bmp, new Rectangle(0, 0, dr.Width, dr.Height));
+                            bmp.Save(Path.Combine(dir, name + ".png"),
+                                System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                        n++;
+                        Console.WriteLine("shot " + name);
+                    }
+                    dr.Close();
+                }
+            }
+            Console.WriteLine("uishots: " + n + " -> " + dir);
+            return 0;
+        }
+
         public static int Run()
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-
             int cs = CapsuleForm.CapsuleSize;          // 触发 Program 静态构造（DPI 测定）
             Console.WriteLine("UI selftest  Scale=" + Program.Scale + "  CapsuleSize=" + cs);
             Rectangle wa = Screen.PrimaryScreen.WorkingArea;

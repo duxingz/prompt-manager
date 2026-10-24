@@ -15,7 +15,7 @@ namespace PromptDrawer
     {
         public const string AppName = "提示词管理器V2";
         // v2 已退役（2026-10-06，目录已整目录删除）：主库（21,900 条 / 40 分类）归档在
-        //   D:\workwork\prompt-manager-v3\旧版数据\prompts_data-v2-主库.json（+ 完整归档 zip）
+        //   D:\workwork\提示词管理器V2\旧版数据\prompts_data-v2-主库.json（+ 完整归档 zip）
         // 「首启自动导入」仍关闭：旧库 21,900 条远超 1 万条性能基准，首启大文件导入风险高。
         // 上限已移除（2026-10-07，隐性要求改为 1 万条内极速，SelfTest 有基准门），
         // 需要时请用设置页的「从 v2 / JSON 导入…」手动选那个文件。
@@ -213,6 +213,14 @@ namespace PromptDrawer
                 // 被动 UI 自检：窗口只在屏幕外出现，不移动鼠标、不截屏、不碰用户数据
                 try { Environment.Exit(UiTest.Run()); }
                 catch (Exception ex) { LogCrash("uitest", ex); Environment.Exit(1); }
+                return;
+            }
+            if (args.Length >= 1 && args[0] == "--uishots")
+            {
+                // 渲染 QA 出图（2026-10-24）：同 uitest 规矩（屏幕外/不碰输入/数据只进临时目录），
+                // 产出 6 张 PNG 供四色配额检查与独立视觉验收
+                try { Environment.Exit(UiTest.RunShots(args.Length > 1 ? args[1] : "_ui-shots")); }
+                catch (Exception ex) { LogCrash("uishots", ex); Environment.Exit(1); }
                 return;
             }
 

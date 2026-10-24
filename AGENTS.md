@@ -1,4 +1,4 @@
-# AGENTS.md — prompt-manager-v3 交接须知
+# AGENTS.md — 提示词管理器V2 交接须知（原 prompt-manager-v3，2026-10-24 目录合并改名）
 
 > 🔑 **新接手请先读 `接手指路.md`**（一页纸：五分钟上手 / 代码地图 / 红线 / 最贵的坑 / 现状快照）。
 > 本文是**权威细则**：硬规则 1~18 + 历次修改（①~㉔）+ 待办池。用户视角说明见 README.md。
@@ -44,7 +44,7 @@
    现改为 `ApplyControl` **递归整棵树**（并给 `ChipButton`/`MiniButton` 记住"选中态/危险色"）。
 ⑤ **v2 退役**：v2 与 v3 都注册了开机自启、且都抢 `Alt+P` → 开机双开 + 热键互抢。已删
    `HKCU\...\Run\PromptDrawerV2`、把 v2 **整目录删除**（163MB），数据完整归档到
-   `prompt-manager-v3\旧版数据\`（主库 21,900 条 / 40 分类 + v2 源码 + 滚动备份 + v1 归档，
+   `提示词管理器V2\旧版数据\`（主库 21,900 条 / 40 分类 + v2 源码 + 滚动备份 + v1 归档，
    详见该目录 README）。v3 的「首启自动导入」随之**关闭**（旧库 21,900 条 > 1 万上限）。
 
 **2026-10-06 夜修 ⑤（批次 1+2，独立评审双轮通过）**：
@@ -479,6 +479,25 @@ uitest 32/32、selftest 50/50；渲染取证改用 PrintWindow。
 ④ **⚠️ 踩到的怪事（重要）**：Label 在 _settingsPage 与空态 inner 里**实测不出画面**（渲染 0 像素，但 T12 数得到控件）
    ⇒ 凡"必须出现在面板上的装饰"，用**父容器 Paint 直接画**，别指望 Label。
 ⑤ 自检 **32/32**（T12 设置页 20 控件零重叠）+ 编译 OK。
+**2026-10-24 凌修 ㉖（UI规则 v3.0.0 对齐：色表同步 + BorderField + 键盘焦点 + --uishots 出图）**：
+背景：UI设计规则 套件升至 v3.0.0（45 条清单），用户裁决"按新规则优化本程序 UI"且明确 **"别做太大改动改丑了"** —— 本轮只做 token 同步与无感修复，布局/尺寸/字体零改动。
+① **色表同步**（Theme.cs）：暗色 Surface `#2B2723→#322D28`、Border `#3D3831→#4D463E`（套件 v2.2 层级分离，
+   暗色卡片对画布 1.09→1.22，视觉终验确认"柔和可分层、不发蓝、不刺眼"）；新增 **BorderField**（#96897A/#837B6C，
+   WCAG 1.4.11 非文本 3:1）。亮色语义值零变化。
+② **边界换 3:1 档**：搜索框宿主边框 BorderStrong(1.5:1)→**BorderField(3.34:1)**；复选框未选边框同换。
+③ **键盘焦点（清单规则 37）**：搜索框聚焦整框染 Accent（GotFocus/LostFocus 各 invalidate 宿主）；
+   MiniButton/TabButton/ChipButton/ThemedCheckBox 恢复 TabStop=true（原全 false = 键盘用户够不到）+
+   Focused 时自绘 1.8f Accent 环（实心主按钮用 AccentPressed——Accent 环贴 Accent 底隐形，与套件 Qt 同款）；
+   保留 ShowFocusCues=false（直角虚线框丑）。**鼠标用户视觉零变化**（环只在键盘聚焦时画）。
+④ **新增 `--uishots [dir]`**：渲染 QA 出图模式（同 uitest 规矩：屏幕外/不碰输入/数据只进临时目录），
+   出 prompts/notes/settings × light/dark 6 张。**两个坑**：主题必须写进测试 store（DrawerForm 构造时
+   GetSetting("theme") 会覆盖 Theme.Dark）；必须复刻 Program.ShowDrawer() 的 **RefreshChips()+RefreshList()**
+   （正式路径靠热键弹出时才刷——漏了 RefreshChips 则 chips 行整行不建、粉位消失）。
+⑤ **验收链全绿**：build（32/32 uitest）+ selftest 50/50 + check_usage --render 四色齐（prompts/settings × 亮暗）+
+   独立视觉验收两轮全 PASS（新旧 A/B：token 零漂移、搜索框边界实测 #96897A、暗色分层 1.22:1、无焦点环串扰）。
+⑥ **未修、留档**：记事本页缺橙/粉（既有状态，非本轮引入）——按规范"禁止为凑色硬塞"条款维持现状
+   （文字编辑页塞爱心=装饰噪音）；设置页 0 个 BorderField 像素属复选框全选中+抗锯齿，非缺陷；
+   RectGlyphButton（收起钮）仍 TabStop=false；对话框内 TextBox 仍系统 FixedSingle 边框。
 ## 硬规则（DPI 是本项目最大的坑，动窗口代码前必读）
 
 1. **【胶囊必须带 `WS_EX_TOOLWINDOW`】** —— `CapsuleForm.CreateParams` 里

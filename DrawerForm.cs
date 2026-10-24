@@ -257,7 +257,11 @@ namespace PromptDrawer
             var searchHost = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Surface, Name = "searchHost" };
             searchHost.Paint += (s, ev) =>
             {
-                using (var pen = new Pen(Theme.BorderStrong)) ev.Graphics.DrawRectangle(pen, 0, 0, searchHost.Width - 1, searchHost.Height - 1);
+                // 2026-10-24：边界走 BorderField（WCAG 1.4.11 非文本 3:1，原 BorderStrong 只有 ~1.5:1
+                // 是"白底上一道虚影"）；聚焦时整框染 Accent —— 键盘焦点可见（清单规则 37），鼠标用户无感。
+                bool sf = _search != null && _search.Focused;
+                using (var pen = new Pen(sf ? Theme.Accent : Theme.BorderField))
+                    ev.Graphics.DrawRectangle(pen, 0, 0, searchHost.Width - 1, searchHost.Height - 1);
                 // 2026-10-18 修回：占位文字必须画在这里，不能用 Label —— 视觉终验抓到 Label 不透明，
                 // 把搜索框白底与上下边框整条盖掉（4 张图全中）。直接画字不占底色、不碰边框。
                 if (_search != null && _search.Text.Length == 0)
@@ -298,6 +302,9 @@ namespace PromptDrawer
                 placeholder.Size = new Size(Math.Max(Program.S(40), searchHost.Width - Program.S(18)), searchHost.Height);
             };
             searchHost.Click += (s, ev) => _search.Focus();
+            // 2026-10-24：聚焦态要重画边框（GotFocus/LostFocus 各 invalidate 一次宿主）
+            _search.GotFocus += (s, ev) => searchHost.Invalidate();
+            _search.LostFocus += (s, ev) => searchHost.Invalidate();
             // 原生 cue banner 已弃用（不可调色），保持关闭
             placeholder.Visible = false;   // 2026-10-18：占位改由 searchHost.Paint 画（Label 会盖掉白底与边框）
             _search.TextChanged += (s, ev) => { placeholder.Visible = false; searchHost.Invalidate(); _searchTimer.Stop(); _searchTimer.Start(); };
@@ -2082,7 +2089,6 @@ namespace PromptDrawer
         {
             Text = text;
             Index = index;
-            TabStop = false;
             Font = Theme.Font(Theme.FontBody, true);
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint
                      | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
@@ -2097,6 +2103,8 @@ namespace PromptDrawer
 
         protected override void OnMouseEnter(EventArgs e) { _hot = true; Invalidate(); base.OnMouseEnter(e); }
         protected override void OnMouseLeave(EventArgs e) { _hot = false; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }      // 焦点环重画
+        protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
 
         // 自绘胶囊：不用窗口 Region —— Region 只影响窗口合成，WM_PRINT/DrawToBitmap 抓不到，
         // 截图里会退化成方块（2026-10-17 独立评审实测）。画成路径后任何截取方式都一致。
@@ -2134,7 +2142,8 @@ namespace PromptDrawer
         {
             Text = text;
             Size = new Size(w, h);
-            TabStop = false;
+            // 2026-10-24：恢复默认 TabStop=true（原 false）——按钮进 Tab 链（清单规则 37），
+            // 焦点环只在键盘聚焦时画，鼠标用户视觉零变化。
             Font = Theme.Font(Theme.FontBody, false);
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint
                      | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
@@ -2154,6 +2163,8 @@ namespace PromptDrawer
         protected override void OnMouseLeave(EventArgs e) { _hot = false; _down = false; Invalidate(); base.OnMouseLeave(e); }
         protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Left) _down = true; Invalidate(); base.OnMouseDown(e); }
         protected override void OnMouseUp(MouseEventArgs e) { _down = false; Invalidate(); base.OnMouseUp(e); }
+        protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }      // 焦点环重画
+        protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -2172,6 +2183,11 @@ namespace PromptDrawer
             {
                 using (var b = new SolidBrush(fill)) g.FillPath(b, path);
                 using (var pen = new Pen(border, 1f)) g.DrawPath(pen, path);
+                // 2026-10-24 键盘焦点环（规则 37）：实心主按钮用 AccentPressed（Accent 环贴 Accent 底隐形，
+                // 与套件 Qt 同款处理）；环宽 1.8f 与悬停描边同族，只在 Focused 时画。
+                if (Focused && Enabled)
+                    using (var pen = new Pen(Primary ? Theme.AccentPressed : Theme.Accent, 1.8f))
+                        g.DrawPath(pen, path);
             }
             TextRenderer.DrawText(g, Text, Font, ClientRectangle, text,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter
@@ -2204,7 +2220,8 @@ namespace PromptDrawer
         {
             Text = text;
             FlatStyle = FlatStyle.Flat;
-            TabStop = false;
+            // 2026-10-24：恢复默认 TabStop=true（原 false）——进 Tab 链（清单规则 37），
+            // 焦点环只在键盘聚焦时画，鼠标用户视觉零变化。
             Font = Theme.Font(9.5f, selected);   // 略大；尺寸由网格 PlaceChip 固定（不再 AutoSize）
             ApplyTheme(selected);
         }
@@ -2241,6 +2258,10 @@ namespace PromptDrawer
                     using (var pen = new Pen(Theme.Border, 1f))
                         e.Graphics.DrawPath(pen, path);
                 }
+                // 2026-10-24 键盘焦点环（规则 37）：选中态已有 Accent 描边，聚焦时加粗一档区分
+                if (Focused)
+                    using (var pen = new Pen(Theme.Accent, Selected ? 3f : 1.8f))
+                        e.Graphics.DrawPath(pen, path);
             }
             if (HeartMark)
             {
@@ -2250,7 +2271,9 @@ namespace PromptDrawer
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
             }
         }
-        protected override bool ShowFocusCues { get { return false; } }   // 关掉矩形虚线焦点框（同款直角问题）
+        protected override bool ShowFocusCues { get { return false; } }   // 关掉矩形虚线焦点框（同款直角问题；自绘环见 OnPaint）
+        protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }      // 焦点环重画
+        protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
     }
 
     // 自绘复选框：OS 原生方块在暗色下是近纯白 (243,243,243)、勾选是系统蓝 (0,95,184)，
@@ -2263,6 +2286,9 @@ namespace PromptDrawer
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint
                      | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         }
+
+        protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }      // 焦点环重画
+        protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -2293,9 +2319,13 @@ namespace PromptDrawer
                 else
                 {
                     using (var b = new SolidBrush(Theme.Surface)) g.FillPath(b, path);
-                    using (var p = new Pen(Theme.BorderStrong, 1f)) g.DrawPath(p, path);
+                    using (var p = new Pen(Theme.BorderField, 1f)) g.DrawPath(p, path);   // 2026-10-24：勾选框边界同样走 3:1 档
                 }
             }
+            // 2026-10-24 键盘焦点环（规则 37）：环绕指示器+文字整块，只在 Focused 时画
+            if (Focused)
+                using (var p = new Pen(Theme.Accent, 1.8f))
+                    g.DrawPath(p, DrawerForm.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Program.S(4)));
             int tx = r.Right + Program.S(6);
             TextRenderer.DrawText(g, Text, Font,
                 new Rectangle(tx, 0, Math.Max(0, Width - tx), Height),

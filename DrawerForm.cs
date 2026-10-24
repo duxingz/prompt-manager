@@ -1159,7 +1159,6 @@ namespace PromptDrawer
         {
             if (e.Index < 0 || e.Index >= _filtered.Count) return;
             var p = _filtered[e.Index];
-            var r = new Rectangle(0, e.Bounds.Y, _list.Width, e.Bounds.Height);
             bool selected = _selIds.Contains(p.id);
             // 【直绘 + 系统级原子合成】（2026-10-11 定稿，取代"屏外行缓冲"）
             // 背景+文字+chip+悬停元素直接画到 e.Graphics；**不**走内存位图 ——
@@ -1168,8 +1167,12 @@ namespace PromptDrawer
             // 而闪烁的根源是"先填背景、再逐项 WM_DRAWITEM"之间被 DWM 插了一帧 —— 这靠
             // **DrawerForm 的 WS_EX_COMPOSITED**（整窗系统级合成）解决，**不靠牺牲绘制路径**。
             // 坐标：DrawRowContent 内部一律用 row.Y + 偏移，所以把 row.Y 置成 e.Bounds.Y 即可。
+            // 行宽必须用 e.Bounds.Width（2026-10-24 修）：竖向滚动条是非客户区，e.Bounds 已把它
+            // 扣掉；旧代码用 _list.Width，滚动条出现时卡片右边框/悬停钮画进滚动条底下被裁掉
+            // （用户报的"右边没边框、像截断"），且与 ArrowZones 用的 GetItemRectangle 热区
+            // 错位一个滚动条宽（画在哪、点不中哪）。
             DrawRowContent(e.Graphics, e.Index, p, selected,
-                new Rectangle(0, e.Bounds.Y, _list.Width, e.Bounds.Height));
+                new Rectangle(0, e.Bounds.Y, e.Bounds.Width, e.Bounds.Height));
         }
 
         // 在**行本地坐标系**（row.Y=0）里画一整行（背景+前景+悬停元素）。

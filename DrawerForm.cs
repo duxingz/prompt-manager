@@ -2689,6 +2689,8 @@ namespace PromptDrawer
     public class SmoothListBox : ListBox
     {
         [DllImport("gdi32.dll")] static extern int GetClipBox(IntPtr hdc, out RECT rect);
+        [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref RECT lParam);
+        const int LB_GETITEMRECT = 0x0198;
         [StructLayout(LayoutKind.Sequential)] struct RECT { public int left, top, right, bottom; }
 
         protected override void WndProc(ref Message m)
@@ -2696,8 +2698,14 @@ namespace PromptDrawer
             if (m.Msg == 0x0014)   // WM_ERASEBKGND
             {
                 // 裁剪框完全在"最后一行底边"以内 = 纯 item 行区域：跳过擦除（DrawItem 整行覆盖）
-                RECT rc;
-                if (GetClipBox(m.WParam, out rc) > 0 && rc.bottom <= Items.Count * ItemHeight)
+                // 底边必须滚动感知（LB_GETITEMRECT，2026-10-24 修）：ensure-visible 按整行滚，
+                // 会滚过像素级最大滚动（本机 150% 实测 TopIndex=2 → 288px > max 206px），末行下方
+                // 留出一条无条目覆盖的空带（82px）。旧守卫拿 Count*ItemHeight（总高）比较没算
+                // 滚动偏移，把这条空带也跳过擦除 → 残留滚动前倒数第二行的像素（用户报的末尾多半条 bug）
+                RECT rc; RECT last = new RECT();
+                if (GetClipBox(m.WParam, out rc) > 0 && Items.Count > 0
+                    && SendMessage(Handle, LB_GETITEMRECT, (IntPtr)(Items.Count - 1), ref last) != IntPtr.Zero
+                    && rc.bottom <= last.bottom)
                 {
                     m.Result = (IntPtr)1;
                     return;
